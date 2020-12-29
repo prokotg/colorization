@@ -129,6 +129,12 @@ class SIGGRAPHGenerator(BaseColor):
         self.upsample4 = nn.Sequential(*[nn.Upsample(scale_factor=4, mode='bilinear'),])
         self.softmax = nn.Sequential(*[nn.Softmax(dim=1),])
 
+    @staticmethod
+    def sla(x, step):
+        diff = x % step
+        x += (diff > 0) * (step - diff)
+        return torch.arange(x).reshape((-1, step))[:, 0]
+
     def forward(self, input_A, input_B=None, mask_B=None):
         if(input_B is None):
             input_B = torch.cat((input_A*0, input_A*0), dim=1)
@@ -136,9 +142,9 @@ class SIGGRAPHGenerator(BaseColor):
             mask_B = input_A*0
 
         conv1_2 = self.model1(torch.cat((self.normalize_l(input_A),self.normalize_ab(input_B),mask_B),dim=1))
-        conv2_2 = self.model2(conv1_2[:,:,::2,::2])
-        conv3_3 = self.model3(conv2_2[:,:,::2,::2])
-        conv4_3 = self.model4(conv3_3[:,:,::2,::2])
+        conv2_2 = self.model2(conv1_2[:,:,self.sla(conv1_2.shape[2], 2),:][:,:,:, self.sla(conv1_2.shape[3], 2)])
+        conv3_3 = self.model3(conv2_2[:,:,self.sla(conv2_2.shape[2], 2),:][:,:,:, self.sla(conv2_2.shape[3], 2)])
+        conv4_3 = self.model4(conv3_3[:,:,self.sla(conv3_3.shape[2], 2),:][:,:,:, self.sla(conv3_3.shape[3], 2)])
         conv5_3 = self.model5(conv4_3)
         conv6_3 = self.model6(conv5_3)
         conv7_3 = self.model7(conv6_3)
